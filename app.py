@@ -87,7 +87,13 @@ def stream_json(data: Dict[str, str]):
 
 def get_api_key() -> Optional[str]:
     env_key = os.getenv("OPENROUTER_API_KEY")
-    secret_key = st.secrets.get("OPENROUTER_API_KEY") if hasattr(st, "secrets") else None
+    secret_key = None
+    if hasattr(st, "secrets"):
+        try:
+            secret_key = st.secrets.get("OPENROUTER_API_KEY")
+        except Exception:
+            # If secrets file is missing or malformed, fall back to environment key.
+            secret_key = None
     return secret_key or env_key
 
 
@@ -175,7 +181,7 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         st.markdown('<div class="match-card">', unsafe_allow_html=True)
         img_cols = st.columns([1, 1.2, 1])
         with img_cols[1]:
-            st.image(fetch_image(profile["profilePicture"]), use_column_width=True, clamp=True)
+            st.image(fetch_image(profile["profilePicture"]), use_container_width=True, clamp=True)
         st.markdown(f'<div class="name-age">{profile["name"]}, {profile["age"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>', unsafe_allow_html=True)
 
