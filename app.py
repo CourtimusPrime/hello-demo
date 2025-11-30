@@ -109,28 +109,37 @@ def stream_openrouter(prompt: str, api_key: str):
         "stream": True,
         "temperature": 0.4,
     }
-    with requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers=headers,
-        json=payload,
-        stream=True,
-        timeout=30,
-    ) as resp:
-        resp.raise_for_status()
-        for raw_line in resp.iter_lines(decode_unicode=True):
-            if not raw_line:
-                continue
-            if raw_line.startswith("data: "):
-                data = raw_line.removeprefix("data: ").strip()
-                if data == "[DONE]":
-                    break
-                try:
-                    parsed = json.loads(data)
-                    delta = parsed["choices"][0]["delta"].get("content")
-                    if delta:
-                        yield delta
-                except Exception:
+    usage = {"model": payload["model"], "prompt_tokens": None, "completion_tokens": None}
+
+    def gen():
+        with requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            stream=True,
+            timeout=30,
+        ) as resp:
+            resp.raise_for_status()
+            for raw_line in resp.iter_lines(decode_unicode=True):
+                if not raw_line:
                     continue
+                if raw_line.startswith("data: "):
+                    data = raw_line.removeprefix("data: ").strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        parsed = json.loads(data)
+                        if "usage" in parsed:
+                            usage.update(parsed["usage"])
+                        if "model" in parsed:
+                            usage["model"] = parsed["model"]
+                        delta = parsed.get("choices", [{}])[0].get("delta", {}).get("content")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        continue
+
+    return gen(), usage
 
 
 def ensure_state(df: pd.DataFrame):
@@ -181,7 +190,7 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         st.markdown('<div class="match-card">', unsafe_allow_html=True)
         img_cols = st.columns([1, 1.2, 1])
         with img_cols[1]:
-            st.image(fetch_image(profile["profilePicture"]), use_container_width=True, clamp=True)
+            st.image(fetch_image(profile["profilePicture"]), width=320, clamp=True)
         st.markdown(f'<div class="name-age">{profile["name"]}, {profile["age"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>', unsafe_allow_html=True)
 
@@ -201,19 +210,39 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         compat_container = st.container()
         compat_container.markdown("##### Compatibility Summary")
         compat_container.markdown('<div class="compat-box">', unsafe_allow_html=True)
+
         api_key = get_api_key()
+        usage_info: Dict[str, Optional[int]] = {"model": "openai/gpt-4o-mini", "prompt_tokens": None, "completion_tokens": None}
+        used_ai = False
 
-        def stream_content():
-            if api_key:
-                try:
-                    yield from stream_openrouter(prompt, api_key)
-                    return
-                except Exception:
-                    st.warning("OpenRouter request failed; showing local compatibility estimate.")
-            yield from stream_json(compatibility_summary(persona, profile))
+        if api_key:
+            try:
+                stream_gen, usage = stream_openrouter(prompt, api_key)
+                compat_container.write_stream(stream_gen)
+                usage_info.update(usage)
+                used_ai = True
+            except Exception:
+                st.warning("OpenRouter request failed; showing local compatibility estimate.")
 
-        compat_container.write_stream(stream_content())
+        if not used_ai:
+            compat_container.write_stream(stream_json(compatibility_summary(persona, profile)))
+
         compat_container.markdown("</div>", unsafe_allow_html=True)
+        if usage_info.get("prompt_tokens") is not None or usage_info.get("completion_tokens") is not None:
+            prompt_tks = usage_info.get("prompt_tokens") or 0
+            completion_tks = usage_info.get("completion_tokens") or 0
+            in_rate = 0.000150  # dollars per 1k input tokens for gpt-4o-mini
+            out_rate = 0.000600  # dollars per 1k output tokens for gpt-4o-mini
+            in_cost = (prompt_tks / 1000) * in_rate
+            out_cost = (completion_tks / 1000) * out_rate
+            total_cost = in_cost + out_cost
+            compat_container.markdown(
+                f"**Cost breakdown** — Model: `{usage_info.get('model','openai/gpt-4o-mini')}`  \n"
+                f"- Input tokens: {prompt_tks} (${in_cost:.5f})  \n"
+                f"- Output tokens: {completion_tks} (${out_cost:.5f})  \n"
+                f"- Estimated total: **${total_cost:.5f}**"
+            )
+
         with compat_container.expander("AI prompt (preview)"):
             st.code(prompt, language="text")
 
