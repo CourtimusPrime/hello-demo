@@ -12,6 +12,14 @@ from PIL import Image
 
 st.set_page_config(page_title="Chemistry Cards", page_icon="💘", layout="wide")
 load_dotenv()
+MODEL_OPTIONS = [
+    "openai/gpt-4o-mini",
+    "openai/gpt-oss-20b",
+    "thudm/glm-4.1v-9b-thinking",
+    "deepseek/deepseek-r1-0528-qwen3-8b",
+    "google/gemma-3n-e4b-it",
+    "qwen/qwen3-8b",
+]
 
 
 @st.cache_data
@@ -97,14 +105,14 @@ def get_api_key() -> Optional[str]:
     return secret_key or env_key
 
 
-def stream_openrouter(prompt: str, api_key: str):
+def stream_openrouter(prompt: str, api_key: str, model: str):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "HTTP-Referer": "http://localhost",
-        "X-Title": "Chemistry Cards",
+        "X-Title": "HELLO Demo",
     }
     payload = {
-        "model": "openai/gpt-4o-mini",
+        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
         "temperature": 0.4,
@@ -148,6 +156,8 @@ def ensure_state(df: pd.DataFrame):
         st.session_state.impersonated = names[0]
     if "active_idx" not in st.session_state:
         st.session_state.active_idx = 0
+    if "model_choice" not in st.session_state:
+        st.session_state.model_choice = MODEL_OPTIONS[0]
 
 
 def render_settings(df: pd.DataFrame):
@@ -162,9 +172,19 @@ def render_settings(df: pd.DataFrame):
             else 0,
             key="impersonate_select",
         )
+        st.markdown("**Model**")
+        model_selected = st.selectbox(
+            "Model choice",
+            MODEL_OPTIONS,
+            index=MODEL_OPTIONS.index(st.session_state.model_choice)
+            if st.session_state.model_choice in MODEL_OPTIONS
+            else 0,
+            key="model_select",
+        )
         st.caption("Selected persona is removed from the rotation of shown profiles.")
-        if st.button("Use this persona", type="primary"):
+        if st.button("Apply settings", type="primary"):
             st.session_state.impersonated = selected
+            st.session_state.model_choice = model_selected
             st.session_state.active_idx = 0
             st.rerun()
 
@@ -200,7 +220,7 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
             "Respond only in JSON:\n{\n"
             '  "score": FLOAT,\n'
             '  "reason": STRING,\n'
-            '  "ideaSummary": STRING\n'
+            '  "dateIdea": STRING\n'
             "}\n\n"
             f"Person A: {traits_from_row(persona)}\n"
             f"Person B: {traits_from_row(profile)}\n\n"
@@ -212,14 +232,21 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         compat_container.markdown('<div class="compat-box">', unsafe_allow_html=True)
 
         api_key = get_api_key()
-        usage_info: Dict[str, Optional[int]] = {"model": "openai/gpt-4o-mini", "prompt_tokens": None, "completion_tokens": None}
+        usage_info: Dict[str, Optional[int]] = {
+            "model_requested": st.session_state.model_choice,
+            "model_used": None,
+            "prompt_tokens": None,
+            "completion_tokens": None,
+        }
         used_ai = False
 
         if api_key:
             try:
-                stream_gen, usage = stream_openrouter(prompt, api_key)
+                stream_gen, usage = stream_openrouter(prompt, api_key, st.session_state.model_choice)
                 compat_container.write_stream(stream_gen)
-                usage_info.update(usage)
+                usage_info["model_used"] = usage.get("model") or usage_info["model_requested"]
+                usage_info["prompt_tokens"] = usage.get("prompt_tokens")
+                usage_info["completion_tokens"] = usage.get("completion_tokens")
                 used_ai = True
             except Exception:
                 st.warning("OpenRouter request failed; showing local compatibility estimate.")
@@ -231,17 +258,34 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         if usage_info.get("prompt_tokens") is not None or usage_info.get("completion_tokens") is not None:
             prompt_tks = usage_info.get("prompt_tokens") or 0
             completion_tks = usage_info.get("completion_tokens") or 0
-            in_rate = 0.000150  # dollars per 1k input tokens for gpt-4o-mini
-            out_rate = 0.000600  # dollars per 1k output tokens for gpt-4o-mini
-            in_cost = (prompt_tks / 1000) * in_rate
-            out_cost = (completion_tks / 1000) * out_rate
-            total_cost = in_cost + out_cost
-            compat_container.markdown(
-                f"**Cost breakdown** — Model: `{usage_info.get('model','openai/gpt-4o-mini')}`  \n"
-                f"- Input tokens: {prompt_tks} (${in_cost:.5f})  \n"
-                f"- Output tokens: {completion_tks} (${out_cost:.5f})  \n"
-                f"- Estimated total: **${total_cost:.5f}**"
-            )
+            # Rates pulled from OpenRouter pricing API (per-token USD).
+            rate_table = {
+                "openai/gpt-4o-mini": {"in": 0.00000015, "out": 0.00000060},
+                "openai/gpt-oss-20b": {"in": 0.00000003, "out": 0.00000014},
+                "thudm/glm-4.1v-9b-thinking": {"in": 0.000000028, "out": 0.0000001104},
+                "deepseek/deepseek-r1-0528-qwen3-8b": {"in": 0.00000002, "out": 0.00000010},
+                "google/gemma-3n-e4b-it": {"in": 0.00000002, "out": 0.00000004},
+                "qwen/qwen3-8b": {"in": 0.000000028, "out": 0.0000001104},
+            }
+            model_name = usage_info.get("model_used") or usage_info.get("model_requested")
+            rates = rate_table.get(model_name)
+            if rates:
+                in_cost = prompt_tks * rates["in"]
+                out_cost = completion_tks * rates["out"]
+                total_cost = in_cost + out_cost
+                compat_container.markdown(
+                    f"**Cost breakdown** — Model: `{model_name}`  \n"
+                    f"- Input tokens: {prompt_tks} (${in_cost:.8f})  \n"
+                    f"- Output tokens: {completion_tks} (${out_cost:.8f})  \n"
+                    f"- Estimated total: **${total_cost:.8f}**"
+                )
+            else:
+                compat_container.markdown(
+                    f"**Cost breakdown** — Model: `{model_name}`  \n"
+                    f"- Input tokens: {prompt_tks} (rate unavailable)  \n"
+                    f"- Output tokens: {completion_tks} (rate unavailable)  \n"
+                    f"- Estimated total: rate not available for this model"
+                )
 
         with compat_container.expander("AI prompt (preview)"):
             st.code(prompt, language="text")
