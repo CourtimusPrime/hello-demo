@@ -20,6 +20,116 @@ MODEL_OPTIONS = [
     "google/gemma-3n-e4b-it",
     "qwen/qwen3-8b",
 ]
+THEMES: Dict[str, Dict[str, str]] = {
+    "dark": {
+        "page_grad_start": "#0f172a",
+        "page_grad_mid": "#0b1120",
+        "page_grad_end": "#0a0f1d",
+        "card_bg": "rgba(15, 23, 42, 0.9)",
+        "card_overlay": "rgba(99, 102, 241, 0.12)",
+        "text_primary": "#e5e7eb",
+        "text_muted": "#9ca3af",
+        "chip_bg": "rgba(255, 255, 255, 0.06)",
+        "chip_text": "#e5e7eb",
+        "border": "rgba(255, 255, 255, 0.08)",
+        "shadow": "0 20px 60px rgba(0,0,0,0.35)",
+        "compat_bg": "linear-gradient(135deg, rgba(17,24,39,0.9), rgba(10,15,29,0.9))",
+        "accent": "#a855f7",
+        "accent_alt": "#22d3ee",
+    },
+    "light": {
+        "page_grad_start": "#f8fafc",
+        "page_grad_mid": "#eef2ff",
+        "page_grad_end": "#e0e7ff",
+        "card_bg": "rgba(255, 255, 255, 0.96)",
+        "card_overlay": "rgba(99, 102, 241, 0.12)",
+        "text_primary": "#0f172a",
+        "text_muted": "#475569",
+        "chip_bg": "rgba(79, 70, 229, 0.08)",
+        "chip_text": "#0f172a",
+        "border": "rgba(15, 23, 42, 0.08)",
+        "shadow": "0 12px 30px rgba(15, 23, 42, 0.08)",
+        "compat_bg": "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(238,242,255,0.92))",
+        "accent": "#6366f1",
+        "accent_alt": "#06b6d4",
+    },
+}
+
+
+def get_theme(mode: str) -> Dict[str, str]:
+    return THEMES.get(mode, THEMES["dark"])
+
+
+def apply_theme_styles(theme: Dict[str, str]):
+    st.markdown(
+        f"""
+        <style>
+        :root {{
+            --page-grad-start: {theme["page_grad_start"]};
+            --page-grad-mid: {theme["page_grad_mid"]};
+            --page-grad-end: {theme["page_grad_end"]};
+            --card-bg: {theme["card_bg"]};
+            --card-overlay: {theme["card_overlay"]};
+            --text-primary: {theme["text_primary"]};
+            --text-muted: {theme["text_muted"]};
+            --chip-bg: {theme["chip_bg"]};
+            --chip-text: {theme["chip_text"]};
+            --border-subtle: {theme["border"]};
+            --shadow-strong: {theme["shadow"]};
+            --compat-bg: {theme["compat_bg"]};
+            --accent: {theme["accent"]};
+            --accent-alt: {theme["accent_alt"]};
+        }}
+
+        .stApp {{
+            background: radial-gradient(circle at 10% 20%, var(--page-grad-start) 0, var(--page-grad-mid) 45%, var(--page-grad-end) 100%);
+            color: var(--text-primary);
+        }}
+
+        .match-card {{
+            background: var(--card-bg);
+            border-radius: 26px;
+            padding: 28px;
+            box-shadow: var(--shadow-strong);
+            border: 1px solid var(--border-subtle);
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .match-card:before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 20% 20%, var(--card-overlay), transparent 55%);
+            opacity: 0.85;
+            pointer-events: none;
+        }}
+
+        .name-age {{font-size: 32px; font-weight: 700; text-align:center; margin-top: 12px; color: var(--text-primary);}}
+        .tagline {{text-align:center; color: var(--text-muted); margin-bottom: 18px;}}
+        .compat-box {{background: var(--compat-bg); border: 1px solid var(--border-subtle); border-radius: 18px; padding: 18px 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);}}
+        .chips {{display: flex; flex-wrap: wrap; gap: 8px;}}
+        .chip {{background: var(--chip-bg); color: var(--chip-text); padding: 6px 10px; border-radius: 999px; border:1px solid var(--border-subtle);}}
+        .meta-pill {{display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--chip-bg); color: var(--chip-text); border:1px solid var(--border-subtle);}}
+        .toolbar-card {{background: var(--card-bg); border:1px solid var(--border-subtle); padding: 12px 18px; border-radius: 16px; box-shadow: var(--shadow-strong);}}
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp label {{color: var(--text-primary);}}
+        .stApp a {{color: var(--accent);}}
+        .stMarkdown, .stText, .stCaption, .stExpander {{color: var(--text-primary) !important;}}
+        section[data-testid="stSidebar"] {{background: var(--card-bg); border-right: 1px solid var(--border-subtle);}}
+        .stButton>button {{
+            background: linear-gradient(120deg, var(--accent), var(--accent-alt));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.16);
+        }}
+        .stButton>button:hover {{filter: brightness(1.05);}}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 @st.cache_data
@@ -158,6 +268,9 @@ def ensure_state(df: pd.DataFrame):
         st.session_state.active_idx = 0
     if "model_choice" not in st.session_state:
         st.session_state.model_choice = MODEL_OPTIONS[0]
+    if "theme_mode" not in st.session_state:
+        base_theme = st.get_option("theme.base") if hasattr(st, "get_option") else "dark"
+        st.session_state.theme_mode = "dark" if str(base_theme).lower() == "dark" else "light"
 
 
 def render_settings(df: pd.DataFrame):
@@ -190,24 +303,18 @@ def render_settings(df: pd.DataFrame):
 
 
 def render_profile_card(persona: pd.Series, profile: pd.Series):
-    st.markdown(
-        """
-        <style>
-        .stApp {background: radial-gradient(circle at 10% 20%, #111827 0, #0b1120 50%, #0a0f1d 100%); color: #e5e7eb;}
-        .match-card {background: #0f172a; border-radius: 26px; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.05);}
-        .name-age {font-size: 32px; font-weight: 700; text-align:center; margin-top: 16px; color: #f8fafc;}
-        .tagline {text-align:center; color: #9ca3af; margin-bottom: 18px;}
-        .compat-box {background: linear-gradient(135deg, #111827, #0b162b); border: 1px solid #1f2937; border-radius: 18px; padding: 18px 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);}
-        .chips {display: flex; flex-wrap: wrap; gap: 8px;}
-        .chip {background: #111827; color: #e5e7eb; padding: 6px 10px; border-radius: 999px; border:1px solid #1f2937;}
-        .stMarkdown, .stText, .stCaption, .stExpander {color: #e5e7eb !important;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
     with st.container():
         st.markdown('<div class="match-card">', unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                <span class="meta-pill">🙋 You: {persona["name"]}</span>
+                <span class="meta-pill">🎯 Match: {profile["name"]}</span>
+                <span class="meta-pill">⭐ {profile["starSign"]}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         img_cols = st.columns([1, 1.2, 1])
         with img_cols[1]:
             st.image(fetch_image(profile["profilePicture"]), width=320, clamp=True)
@@ -311,13 +418,33 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
 
 
 def main():
-    st.header("Chemistry Cards")
     df = load_data()
     ensure_state(df)
 
-    top_cols = st.columns([5, 1.5])
+    theme = get_theme(st.session_state.theme_mode)
+    apply_theme_styles(theme)
+
+    top_cols = st.columns([1, 2, 1])
+    with top_cols[0]:
+        st.empty()
     with top_cols[1]:
+        st.markdown(
+            f"""
+            <div class="toolbar-card" style="text-align:center;">
+                <div style="font-size:30px; font-weight:800; color: var(--text-primary); letter-spacing:-0.01em;">Chemistry Cards</div>
+                <div style="color: var(--text-muted);">AI quick-read on how your persona vibes with every profile.</div>
+                <div style="margin-top:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+                    <span class="meta-pill">💬 {st.session_state.model_choice}</span>
+                    <span class="meta-pill">🙋 You: {st.session_state.impersonated}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with top_cols[2]:
+        st.markdown('<div style="display:flex; justify-content:flex-end;">', unsafe_allow_html=True)
         render_settings(df)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     rotation = df[df["name"] != st.session_state.impersonated].reset_index(drop=True)
     if rotation.empty:
@@ -328,7 +455,7 @@ def main():
     profile = rotation.iloc[st.session_state.active_idx]
     persona = df[df["name"] == st.session_state.impersonated].iloc[0]
 
-    nav_cols = st.columns([1, 1, 4])
+    nav_cols = st.columns([1, 1, 1])
     with nav_cols[0]:
         if st.button("⬅ Previous", use_container_width=True):
             st.session_state.active_idx = (st.session_state.active_idx - 1) % len(rotation)
@@ -338,9 +465,11 @@ def main():
             st.session_state.active_idx = (st.session_state.active_idx + 1) % len(rotation)
             st.rerun()
     with nav_cols[2]:
-        st.write(
-            f"Viewing {st.session_state.active_idx + 1} of {len(rotation)} "
-            f"(you are impersonating {st.session_state.impersonated})"
+        st.markdown(
+            f"<div style='text-align:center; color: var(--text-muted);'>"
+            f"Viewing {st.session_state.active_idx + 1} of {len(rotation)} • Impersonating {st.session_state.impersonated}"
+            "</div>",
+            unsafe_allow_html=True,
         )
 
     render_profile_card(persona, profile)
