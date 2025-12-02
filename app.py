@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -112,6 +113,12 @@ def apply_theme_styles(theme: Dict[str, str]):
         .chip {{background: var(--chip-bg); color: var(--chip-text); padding: 6px 10px; border-radius: 999px; border:1px solid var(--border-subtle);}}
         .meta-pill {{display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--chip-bg); color: var(--chip-text); border:1px solid var(--border-subtle);}}
         .toolbar-card {{background: var(--card-bg); border:1px solid var(--border-subtle); padding: 12px 18px; border-radius: 16px; box-shadow: var(--shadow-strong);}}
+        .summary-card {{background: var(--card-bg); border:1px solid var(--border-subtle); padding: 14px 16px; border-radius: 16px; box-shadow: var(--shadow-strong); max-width: 520px; margin: 0 auto;}}
+        .image-wrap {{position:relative; width:max-content; margin: 12px auto 16px;}}
+        .profile-img {{border-radius: 22px; width: 320px; box-shadow: var(--shadow-strong); display:block;}}
+        .score-badge {{position:absolute; bottom:12px; right:12px; width: 86px; height: 86px; border-radius: 50%; display:flex; align-items:center; justify-content:center; color: var(--text-primary); font-weight:800; box-shadow: var(--shadow-strong);}}
+        .score-inner {{width: 64px; height: 64px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: var(--card-bg); border: 1px solid var(--border-subtle);}}
+        .page-shell {{max-width: 980px; margin: 0 auto; padding: 8px 18px 32px;}}
         .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp p, .stApp label {{color: var(--text-primary);}}
         .stApp a {{color: var(--accent);}}
         .stMarkdown, .stText, .stCaption, .stExpander {{color: var(--text-primary) !important;}}
@@ -260,6 +267,60 @@ def stream_openrouter(prompt: str, api_key: str, model: str):
     return gen(), usage
 
 
+def fetch_openrouter_summary(prompt: str, api_key: str, model: str):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "HELLO Demo",
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.4,
+    }
+    resp = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    usage = data.get("usage", {})
+    if "model" in data:
+        usage["model"] = data["model"]
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    return content, usage
+
+
+def parse_summary_text(text: str) -> Dict[str, str]:
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except Exception:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(text[start : end + 1])
+            except Exception:
+                return {}
+        return {}
+
+
+def score_to_color(score: float) -> str:
+    clamped = max(0.0, min(1.0, score))
+    hue = int(120 * clamped)  # 0 = red, 120 = green
+    return f"hsl({hue}, 80%, 50%)"
+
+
+def image_to_base64(img: Image.Image) -> str:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+
 def ensure_state(df: pd.DataFrame):
     names: List[str] = df["name"].tolist()
     if "impersonated" not in st.session_state:
@@ -304,23 +365,15 @@ def render_settings(df: pd.DataFrame):
 
 def render_profile_card(persona: pd.Series, profile: pd.Series):
     with st.container():
-        st.markdown('<div class="match-card">', unsafe_allow_html=True)
         st.markdown(
             f"""
             <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
-                <span class="meta-pill">🙋 You: {persona["name"]}</span>
                 <span class="meta-pill">🎯 Match: {profile["name"]}</span>
-                <span class="meta-pill">⭐ {profile["starSign"]}</span>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        img_cols = st.columns([1, 1.2, 1])
-        with img_cols[1]:
-            st.image(fetch_image(profile["profilePicture"]), width=320, clamp=True)
-        st.markdown(f'<div class="name-age">{profile["name"]}, {profile["age"]}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>', unsafe_allow_html=True)
-
+        picture = fetch_image(profile["profilePicture"])
         prompt = (
             'You are given two people’s traits. Compare them, score their compatibility (0–1),\n'
             'give a short neutral reason (<75 words), and a 1-line fun date idea (<15 words).\n'
@@ -334,34 +387,70 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
             'Write with the pronoun "you"'
         )
 
-        compat_container = st.container()
-        compat_container.markdown("##### Compatibility Summary")
-        compat_container.markdown('<div class="compat-box">', unsafe_allow_html=True)
-
         api_key = get_api_key()
+        summary_data: Dict[str, Optional[str]] = {}
         usage_info: Dict[str, Optional[int]] = {
             "model_requested": st.session_state.model_choice,
             "model_used": None,
             "prompt_tokens": None,
             "completion_tokens": None,
         }
-        used_ai = False
 
         if api_key:
             try:
-                stream_gen, usage = stream_openrouter(prompt, api_key, st.session_state.model_choice)
-                compat_container.write_stream(stream_gen)
+                content, usage = fetch_openrouter_summary(prompt, api_key, st.session_state.model_choice)
+                summary_data = parse_summary_text(content)
                 usage_info["model_used"] = usage.get("model") or usage_info["model_requested"]
                 usage_info["prompt_tokens"] = usage.get("prompt_tokens")
                 usage_info["completion_tokens"] = usage.get("completion_tokens")
-                used_ai = True
             except Exception:
                 st.warning("OpenRouter request failed; showing local compatibility estimate.")
 
-        if not used_ai:
-            compat_container.write_stream(stream_json(compatibility_summary(persona, profile)))
+        if not summary_data:
+            summary_data = compatibility_summary(persona, profile)
 
-        compat_container.markdown("</div>", unsafe_allow_html=True)
+        score_value = float(summary_data.get("score", 0) or 0)
+        score_value = max(0.0, min(1.0, score_value))
+        score_pct = int(round(score_value * 100))
+        score_color = score_to_color(score_value)
+        reason_text = summary_data.get("reason") or summary_data.get("summary") or "You balance each other well."
+        idea_text = (
+            summary_data.get("dateIdea")
+            or summary_data.get("ideaSummary")
+            or summary_data.get("idea")
+            or "Pick a spot you both like and let the vibe decide."
+        )
+
+        image_b64 = image_to_base64(picture)
+        st.markdown(
+            f"""
+            <div class="image-wrap">
+                <img src="data:image/png;base64,{image_b64}" class="profile-img" alt="Profile image" />
+                <div class="score-badge" style="background: conic-gradient({score_color} {score_pct}%, rgba(255,255,255,0.08) {score_pct}% 100%);">
+                    <div class="score-inner" style="color:{score_color};">{score_pct}%</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(f'<div class="name-age">{profile["name"]}, {profile["age"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>', unsafe_allow_html=True)
+
+        st.markdown(
+            f"""
+            <div class="summary-card">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;">
+                    <span class="meta-pill">Compatibility</span>
+                    <span style="color:{score_color}; font-weight:800;">{score_pct}%</span>
+                </div>
+                <p style="margin:10px 0 6px; color: var(--text-primary);">{reason_text}</p>
+                <div style="color: var(--text-muted);">Date idea: {idea_text}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         if usage_info.get("prompt_tokens") is not None or usage_info.get("completion_tokens") is not None:
             prompt_tks = usage_info.get("prompt_tokens") or 0
             completion_tks = usage_info.get("completion_tokens") or 0
@@ -376,28 +465,24 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
             }
             model_name = usage_info.get("model_used") or usage_info.get("model_requested")
             rates = rate_table.get(model_name)
-            if rates:
-                in_cost = prompt_tks * rates["in"]
-                out_cost = completion_tks * rates["out"]
-                total_cost = in_cost + out_cost
-                compat_container.markdown(
-                    f"**Cost breakdown** — Model: `{model_name}`  \n"
-                    f"- Input tokens: {prompt_tks} (${in_cost:.8f})  \n"
-                    f"- Output tokens: {completion_tks} (${out_cost:.8f})  \n"
-                    f"- Estimated total: **${total_cost:.8f}**"
-                )
-            else:
-                compat_container.markdown(
-                    f"**Cost breakdown** — Model: `{model_name}`  \n"
-                    f"- Input tokens: {prompt_tks} (rate unavailable)  \n"
-                    f"- Output tokens: {completion_tks} (rate unavailable)  \n"
-                    f"- Estimated total: rate not available for this model"
-                )
+            with st.expander("Token cost (info)"):
+                if rates:
+                    in_cost = prompt_tks * rates["in"]
+                    out_cost = completion_tks * rates["out"]
+                    total_cost = in_cost + out_cost
+                    st.write(
+                        f"Model: `{model_name}`  |  Input: {prompt_tks} (${in_cost:.8f})  |  "
+                        f"Output: {completion_tks} (${out_cost:.8f})  |  Est: ${total_cost:.8f}"
+                    )
+                else:
+                    st.write(
+                        f"Model: `{model_name}`  |  Input: {prompt_tks} (rate unavailable)  |  "
+                        f"Output: {completion_tks} (rate unavailable)"
+                    )
 
-        with compat_container.expander("AI prompt (preview)"):
+        with st.expander("AI prompt (preview)"):
             st.code(prompt, language="text")
 
-        st.markdown("---")
         st.markdown("###### Profile")
         col_details, col_bio = st.columns([1, 1.2])
         with col_details:
@@ -424,24 +509,23 @@ def main():
     theme = get_theme(st.session_state.theme_mode)
     apply_theme_styles(theme)
 
-    top_cols = st.columns([1, 2, 1])
+    st.markdown('<div class="page-shell">', unsafe_allow_html=True)
+
+    top_cols = st.columns([2.5, 1])
     with top_cols[0]:
-        st.empty()
-    with top_cols[1]:
         st.markdown(
             f"""
             <div class="toolbar-card" style="text-align:center;">
-                <div style="font-size:30px; font-weight:800; color: var(--text-primary); letter-spacing:-0.01em;">Chemistry Cards</div>
-                <div style="color: var(--text-muted);">AI quick-read on how your persona vibes with every profile.</div>
+                <div style="font-size:28px; font-weight:800; color: var(--text-primary); letter-spacing:-0.01em;">Chemistry Cards</div>
+                <div style="color: var(--text-muted);">Quick compatibility pulse between your persona and each profile.</div>
                 <div style="margin-top:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
                     <span class="meta-pill">💬 {st.session_state.model_choice}</span>
-                    <span class="meta-pill">🙋 You: {st.session_state.impersonated}</span>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with top_cols[2]:
+    with top_cols[1]:
         st.markdown('<div style="display:flex; justify-content:flex-end;">', unsafe_allow_html=True)
         render_settings(df)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -449,6 +533,7 @@ def main():
     rotation = df[df["name"] != st.session_state.impersonated].reset_index(drop=True)
     if rotation.empty:
         st.warning("All profiles are hidden because you are impersonating the only available persona.")
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
     st.session_state.active_idx = st.session_state.active_idx % len(rotation)
@@ -466,13 +551,15 @@ def main():
             st.rerun()
     with nav_cols[2]:
         st.markdown(
-            f"<div style='text-align:center; color: var(--text-muted);'>"
-            f"Viewing {st.session_state.active_idx + 1} of {len(rotation)} • Impersonating {st.session_state.impersonated}"
+            f"<div style='text-align:right; color: var(--text-muted);'>"
+            f"Viewing {st.session_state.active_idx + 1} of {len(rotation)}<br/>Impersonating {st.session_state.impersonated}"
             "</div>",
             unsafe_allow_html=True,
         )
 
     render_profile_card(persona, profile)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
