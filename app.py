@@ -8,7 +8,7 @@ import pandas as pd
 import requests
 import streamlit as st
 from dotenv import load_dotenv
-from PIL import Image, Resampling
+from PIL import Image
 
 
 # ------------------------------------------------------------------------------
@@ -25,6 +25,15 @@ MODEL_OPTIONS = [
     "google/gemma-3n-e4b-it",
     "qwen/qwen3-8b",
 ]
+
+MODEL_COSTS = {
+    "openai/gpt-4o-mini": {"input_per_million": 0.15, "output_per_million": 0.6},
+    "openai/gpt-oss-20b": {"input_per_million": 0.15, "output_per_million": 0.6},
+    "thudm/glm-4.1v-9b-thinking": {"input_per_million": 0.2, "output_per_million": 0.8},
+    "deepseek/deepseek-r1-0528-qwen3-8b": {"input_per_million": 0.1, "output_per_million": 0.4},
+    "google/gemma-3n-e4b-it": {"input_per_million": 0.1, "output_per_million": 0.4},
+    "qwen/qwen3-8b": {"input_per_million": 0.1, "output_per_million": 0.4},
+}
 
 THEMES: Dict[str, Dict[str, str]] = {
     "dark": {
@@ -296,7 +305,10 @@ def compatibility_summary(persona: pd.Series, target: pd.Series) -> Dict[str, st
 
 def get_api_key() -> Optional[str]:
     env_key = os.getenv("OPENROUTER_API_KEY")
-    secret = getattr(st, "secrets", {}).get("OPENROUTER_API_KEY", None)
+    try:
+        secret = st.secrets.get("OPENROUTER_API_KEY", None)
+    except:
+        secret = None
     return secret or env_key
 
 
@@ -313,6 +325,24 @@ def parse_summary_text(text: str) -> Dict[str, str]:
             except:
                 return {}
         return {}
+
+
+def call_llm(prompt: str, model: str) -> dict:
+    api_key = get_api_key()
+    if not api_key:
+        return {"error": "No API key"}
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    data = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        if response.status_code == 200:
+            result = response.json()
+            return {"content": result["choices"][0]["message"]["content"], "usage": result.get("usage", {})}
+        else:
+            return {"error": f"API error {response.status_code}: {response.text}"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def score_to_color(score: float) -> str:
@@ -384,8 +414,34 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
 
     picture = fetch_image(profile["profilePicture"])
 
-    # Use local fallback compatibility summary for simplicity
-    summary = compatibility_summary(persona, profile)
+    # Generate compatibility summary using LLM
+    persona_traits = traits_from_row(persona)
+    target_traits = traits_from_row(profile)
+    prompt = f"Analyze the compatibility between these two people based on their profiles. Provide a JSON response with 'score' (float 0-1), 'reason' (string), 'dateIdea' (string).\n\nPersona: {persona_traits}\n\nTarget: {target_traits}"
+
+    result = call_llm(prompt, st.session_state.model_choice)
+    if "error" in result:
+        summary = compatibility_summary(persona, profile)
+        st.warning("Using local summary due to API error.")
+        show_costs = False
+    else:
+        summary_text = result["content"]
+        summary = parse_summary_text(summary_text)
+        if not summary:
+            summary = compatibility_summary(persona, profile)
+            st.warning("Failed to parse LLM response, using local summary.")
+            show_costs = False
+        else:
+            show_costs = True
+            usage = result.get("usage", {})
+            input_tokens = usage.get("prompt_tokens", 0)
+            output_tokens = usage.get("completion_tokens", 0)
+            model = st.session_state.model_choice
+            costs = MODEL_COSTS.get(model, MODEL_COSTS["openai/gpt-4o-mini"])
+            input_cost = (input_tokens / 1e6) * costs["input_per_million"]
+            output_cost = (output_tokens / 1e6) * costs["output_per_million"]
+            total_cost = input_cost + output_cost
+            cost_1000 = total_cost * 1000
 
     score = summary["score"]
     pct = int(score * 100)
@@ -422,6 +478,20 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         """,
         unsafe_allow_html=True,
     )
+
+    if show_costs:
+        st.markdown("**LLM Cost Breakdown**")
+        st.markdown(f"""
+        <pre style="background-color: #000000; color: #00FF00; font-family: 'Courier New', monospace; padding: 15px; border-radius: 8px; border: 1px solid #333; overflow-x: auto;">
+        Input tokens: {input_tokens}
+        Output tokens: {output_tokens}
+        Input cost: ${input_cost:.6f}
+        Output cost: ${output_cost:.6f}
+        Total cost: ${total_cost:.6f}
+        Model: {model}
+        Cost for 1000 calls: ${cost_1000:.4f}
+        </pre>
+        """, unsafe_allow_html=True)
 
     st.markdown("#### Profile")
     col1, col2 = st.columns([1, 1.2])
