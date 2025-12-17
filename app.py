@@ -37,36 +37,36 @@ MODEL_COSTS = {
 
 THEMES: Dict[str, Dict[str, str]] = {
     "dark": {
-        "page_grad_start": "#0f172a",
-        "page_grad_mid": "#0b1120",
-        "page_grad_end": "#0a0f1d",
-        "card_bg": "rgba(15, 23, 42, 0.9)",
-        "card_overlay": "rgba(99, 102, 241, 0.12)",
-        "text_primary": "#e5e7eb",
-        "text_muted": "#9ca3af",
-        "chip_bg": "rgba(255,255,255,0.06)",
-        "chip_text": "#e5e7eb",
-        "border": "rgba(255,255,255,0.08)",
-        "shadow": "0 20px 60px rgba(0,0,0,0.35)",
-        "compat_bg": "linear-gradient(135deg, rgba(17,24,39,0.9), rgba(10,15,29,0.9))",
-        "accent": "#a855f7",
-        "accent_alt": "#22d3ee",
+        "page_grad_start": "#1a1a2e",
+        "page_grad_mid": "#16213e",
+        "page_grad_end": "#0f3460",
+        "card_bg": "rgba(255, 255, 255, 0.08)",
+        "card_overlay": "rgba(255, 20, 147, 0.15)",
+        "text_primary": "#ffffff",
+        "text_muted": "#b0b0b0",
+        "chip_bg": "rgba(255,255,255,0.1)",
+        "chip_text": "#ffffff",
+        "border": "rgba(255,255,255,0.1)",
+        "shadow": "0 8px 32px rgba(0,0,0,0.4)",
+        "compat_bg": "linear-gradient(135deg, rgba(255,20,147,0.9), rgba(138,43,226,0.9))",
+        "accent": "#ff1493",
+        "accent_alt": "#9370db",
     },
     "light": {
-        "page_grad_start": "#f8fafc",
-        "page_grad_mid": "#eef2ff",
-        "page_grad_end": "#e0e7ff",
-        "card_bg": "rgba(255,255,255,0.96)",
-        "card_overlay": "rgba(99, 102, 241, 0.12)",
-        "text_primary": "#0f172a",
-        "text_muted": "#475569",
-        "chip_bg": "rgba(79, 70, 229, 0.08)",
-        "chip_text": "#0f172a",
-        "border": "rgba(15, 23, 42, 0.08)",
-        "shadow": "0 12px 30px rgba(15, 23, 42, 0.08)",
-        "compat_bg": "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(238,242,255,0.92))",
-        "accent": "#6366f1",
-        "accent_alt": "#06b6d4",
+        "page_grad_start": "#ffe4e1",
+        "page_grad_mid": "#ffb6c1",
+        "page_grad_end": "#ff69b4",
+        "card_bg": "rgba(255,255,255,0.95)",
+        "card_overlay": "rgba(255,20,147,0.1)",
+        "text_primary": "#333333",
+        "text_muted": "#666666",
+        "chip_bg": "rgba(255,20,147,0.1)",
+        "chip_text": "#333333",
+        "border": "rgba(255,20,147,0.2)",
+        "shadow": "0 4px 20px rgba(255,20,147,0.15)",
+        "compat_bg": "linear-gradient(135deg, rgba(255,182,193,0.9), rgba(255,105,180,0.9))",
+        "accent": "#ff1493",
+        "accent_alt": "#ffb6c1",
     },
 }
 
@@ -101,136 +101,205 @@ def apply_theme_styles(theme: Dict[str, str]):
         }}
 
 .stApp {{
-    background: radial-gradient(circle at 10% 20%,
-        var(--page-grad-start) 0,
-        var(--page-grad-mid) 45%,
-        var(--page-grad-end) 100%
-    );
+    background: radial-gradient(circle at 20% 50%,
+        var(--page-grad-start) 0%,
+        var(--page-grad-mid) 50%,
+        var(--page-grad-end) 100%);
     color: var(--text-primary);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }}
 
 .page-shell {{
-    max-width: 720px;
+    max-width: 800px;
     margin: 0 auto;
-    padding: 10px 12px 24px;
+    padding: 20px 16px 40px;
 }}
 
-        .toolbar-card {{
-            background: var(--card-bg);
-            border:1px solid var(--border-subtle);
-            padding: 14px 16px;
-            border-radius: 16px;
-            box-shadow: var(--shadow-strong);
-            margin-bottom: 12px;
-        }}
+.toolbar-card {{
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    padding: 24px 32px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    text-align: center;
+}}
 
 .match-card {{
     background: var(--card-bg);
-    border-radius: 26px;
-    padding: 12px 12px;
-    box-shadow: var(--shadow-strong);
-    border: 1px solid var(--border-subtle);
+    border-radius: 32px;
+    padding: 0;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
     position: relative;
-    margin: 12px auto 0;
-    max-width: 420px;
+    margin: 20px auto 0;
+    max-width: 500px;
+    overflow: hidden;
 }}
 
-        .match-header {{
-            display:flex;
-            justify-content: space-between;
-            flex-wrap:wrap;
-            margin-bottom: 10px;
-        }}
+.match-header {{
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.5);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+}}
 
-        .image-wrap {{
-            text-align:center;
-            position:relative;
-            width: fit-content;
-            margin: 0 auto;
-        }}
+.image-wrap {{
+    position: relative;
+    width: 100%;
+    height: 400px;
+    overflow: hidden;
+}}
 
 .profile-img {{
-    border-radius: 22px;
     width: 100%;
-    max-width: 402px;
-    height: auto;
-    box-shadow: var(--shadow-strong);
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
 }}
 
-        .score-badge {{
-            position:absolute;
-            bottom: 16px;
-            right: 16px;
-            width:80px;
-            height:80px;
-            border-radius: 50%;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            box-shadow: var(--shadow-strong);
-        }}
+.score-badge {{
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+    background: var(--card_bg);
+    border: 2px solid var(--accent);
+}}
 
-        .score-inner {{
-            width:60px;
-            height:60px;
-            border-radius:50%;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            background: var(--card-bg);
-            border:1px solid var(--border-subtle);
-        }}
+.score-inner {{
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: white;
+    font-weight: bold;
+    font-size: 18px;
+}}
 
-        .meta-pill {{
-            display:inline-flex;
-            padding:6px 10px;
-            border-radius:999px;
-            background:var(--chip-bg);
-            border:1px solid var(--border-subtle);
-            font-size: 0.85rem;
-            color:var(--chip-text);
-        }}
+.name-age-overlay {{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.8));
+    padding: 60px 20px 20px;
+    color: white;
+    text-align: center;
+}}
 
-        .chips {{
-            display:flex;
-            flex-wrap:wrap;
-            gap:8px;
-        }}
+.name-age {{
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}}
 
-        .chip {{
-            padding:6px 10px;
-            background:var(--chip-bg);
-            border-radius:999px;
-            border:1px solid var(--border-subtle);
-            color:var(--chip-text);
-        }}
-
-        .name-age {{
-            font-size:30px;
-            font-weight:700;
-            text-align:center;
-            margin-top: 10px;
-        }}
-
-        .tagline {{
-            text-align:center;
-            color:var(--text-muted);
-            margin-bottom:16px;
-        }}
+.tagline {{
+    font-size: 18px;
+    margin: 4px 0 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    opacity: 0.9;
+}}
 
 .summary-card {{
     background: var(--card-bg);
-    border:1px solid var(--border-subtle);
-    padding: 14px 18px;
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    border-radius: 20px;
+    max-width: 500px;
+    margin: 20px auto;
+    box-shadow: var(--shadow);
+}}
+
+.meta-pill {{
+    display: inline-flex;
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: var(--chip-bg);
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--chip-text);
+    font-weight: 500;
+}}
+
+.chips {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}}
+
+.chip {{
+    padding: 6px 12px;
+    background: var(--chip-bg);
     border-radius: 16px;
-    max-width:420px;
-    margin:0 auto;
-    box-shadow: var(--shadow-strong);
+    border: 1px solid var(--border);
+    color: var(--chip-text);
+    font-size: 0.85rem;
+}}
+
+.profile-details {{
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}}
+
+.profile-details > div {{
+    flex: 1;
 }}
 
 @media(max-width:768px){{
-    .profile-img {{ max-width: 335px; }}
-    .name-age {{ font-size:24px; }}
+    .profile-img {{ }}
+    .name-age {{ font-size: 28px; }}
+
+    .page-shell {{ padding: 20px 16px 40px; }}
+    .toolbar-card {{ padding: 20px 24px; font-size: 24px; }}
+    .match-card {{ margin: 20px auto; }}
+    .summary-card {{ padding: 20px 24px; }}
+    .meta-pill {{ font-size: 0.9rem; padding: 8px 12px; }}
+    .chip {{ padding: 8px 12px; }}
+    .name-age {{ margin-top: 0; }}
+    .tagline {{ margin-bottom: 0; }}
+
+    .stButton button {{ min-height: 48px; font-size: 16px; }}
+    .stSelectbox {{ font-size: 16px; }}
+}}
+
+@media(max-width:480px){{
+    .image-wrap {{ height: 350px; }}
+    .name-age {{ font-size: 24px; }}
+    .tagline {{ font-size: 16px; }}
+    .toolbar-card {{ font-size: 20px; padding: 16px 20px; }}
+    .match-card {{ }}
+    .summary-card {{ padding: 16px 20px; }}
+    .meta-pill {{ font-size: 0.8rem; padding: 6px 10px; }}
+    .chip {{ padding: 6px 10px; font-size: 0.8rem; }}
+}}
+
+@media(max-width:768px){{
+    .profile-details {{
+        flex-direction: column;
+        gap: 16px;
+    }}
 }}
         </style>
         """,
@@ -389,9 +458,17 @@ def render_settings(df: pd.DataFrame):
             index=MODEL_OPTIONS.index(st.session_state.model_choice),
             key="model_select"
         )
+        st.markdown("**Theme**")
+        theme = st.selectbox(
+            "Theme",
+            ["dark", "light"],
+            index=["dark", "light"].index(st.session_state.theme_mode),
+            key="theme_select"
+        )
         if st.button("Apply settings", type="primary"):
             st.session_state.impersonated = selected
             st.session_state.model_choice = model
+            st.session_state.theme_mode = theme
             st.session_state.active_idx = 0
             st.rerun()
 
@@ -402,22 +479,12 @@ def render_settings(df: pd.DataFrame):
 
 def render_profile_card(persona: pd.Series, profile: pd.Series):
 
-    st.markdown(
-        f"""
-        <div class="match-header">
-            <span class="meta-pill">🎯 Match: {profile["name"]}</span>
-            <span class="meta-pill">Impersonating {persona["name"]}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     picture = fetch_image(profile["profilePicture"])
 
     # Generate compatibility summary using LLM
     persona_traits = traits_from_row(persona)
     target_traits = traits_from_row(profile)
-    prompt = f"Analyze the compatibility between these two people based on their profiles. Provide a JSON response with 'score' (float 0-1), 'reason' (string), 'dateIdea' (string).\n\nPersona: {persona_traits}\n\nTarget: {target_traits}"
+    prompt = f"You are {persona['name']}. Analyze your compatibility with this person based on the profiles below. Provide a JSON response with 'score' (float 0-1), 'reason' (string written in second person using 'You' to refer to yourself), 'dateIdea' (string).\n\nYour profile: {persona_traits}\n\nTarget profile: {target_traits}"
 
     result = call_llm(prompt, st.session_state.model_choice)
     if "error" in result:
@@ -452,28 +519,33 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
     st.markdown(
         f"""
         <div class="image-wrap">
+            <div class="match-header">
+                <span class="meta-pill">🎯 Match</span>
+                <span class="meta-pill">Impersonating {persona["name"]}</span>
+            </div>
             <img src="data:image/png;base64,{img64}" class="profile-img"/>
             <div class="score-badge"
-                 style="background: conic-gradient({color} {pct}%, rgba(255,255,255,0.1) {pct}% 100%);">
-                <div class="score-inner" style="color:{color};">{pct}%</div>
+                 style="background: var(--card-bg);">
+                <div class="score-inner">{pct}%</div>
+            </div>
+            <div class="name-age-overlay">
+                <div class="name-age">{profile["name"]}, {profile["age"]}</div>
+                <div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown(f'<div class="name-age">{profile["name"]}, {profile["age"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="tagline">{profile["occupation"]} • {profile["starSign"]}</div>', unsafe_allow_html=True)
-
     st.markdown(
         f"""
         <div class="summary-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
                 <span class="meta-pill">Compatibility</span>
-                <span style="color:{color}; font-weight:800;">{pct}%</span>
+                <span style="color:{color}; font-weight:800; font-size: 18px;">{pct}%</span>
             </div>
-            <p style="margin-top:10px;">{summary["reason"]}</p>
-            <span style="color:var(--text-muted)">Date idea: {summary["dateIdea"]}</span>
+            <p style="margin: 0 0 12px 0; line-height: 1.5;">{summary["reason"]}</p>
+            <span style="color:var(--text-muted); font-style: italic;">💡 {summary["dateIdea"]}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -493,24 +565,26 @@ def render_profile_card(persona: pd.Series, profile: pd.Series):
         </pre>
         """, unsafe_allow_html=True)
 
-    st.markdown("#### Profile")
-    col1, col2 = st.columns([1, 1.2])
+    st.markdown("#### Profile Details")
+    st.markdown('<div class="profile-details">', unsafe_allow_html=True)
 
-    with col1:
-        st.write(f"**Gender:** {profile['gender']}")
-        st.write(f"**Height:** {profile['height']}")
-        st.write(f"**Education:** {profile['education']}")
-        st.write(f"**Looking For:** {profile['lookingFor']}")
-        st.write("**Interests:**")
+    st.markdown('<div>', unsafe_allow_html=True)
+    st.write(f"**Gender:** {profile['gender']}")
+    st.write(f"**Height:** {profile['height']}")
+    st.write(f"**Education:** {profile['education']}")
+    st.write(f"**Looking For:** {profile['lookingFor']}")
+    st.write("**Interests:**")
 
-        chips = "".join([f"<span class='chip'>{x.strip()}</span>" for x in str(profile["interests"]).split(",")])
-        st.markdown(f"<div class='chips'>{chips}</div>", unsafe_allow_html=True)
+    chips = "".join([f"<span class='chip'>{x.strip()}</span>" for x in str(profile["interests"]).split(",")])
+    st.markdown(f"<div class='chips'>{chips}</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with col2:
-        st.write("**Bio:**")
-        st.write(profile["bio"])
+    st.markdown('<div>', unsafe_allow_html=True)
+    st.write("**Bio:**")
+    st.write(profile["bio"])
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ------------------------------------------------------------------------------
@@ -532,11 +606,11 @@ def main():
         st.markdown(
             """
             <div class="toolbar-card">
-                <div style="font-size:26px; font-weight:800; text-align:center;">
-                    Chemistry Cards
+                <div style="font-size:28px; font-weight:800; text-align:center;">
+                    💕 Chemistry Cards
                 </div>
-                <div style="text-align:center; color:var(--text-muted);">
-                    Quick compatibility pulse between your persona and each profile.
+                <div style="text-align:center; color:var(--text-muted); font-size: 16px;">
+                    Find your perfect match with AI-powered compatibility analysis
                 </div>
             </div>
             """,
@@ -558,7 +632,7 @@ def main():
     # NAVIGATION
     nav1, nav2, nav3 = st.columns([1.2, 1.6, 1.2])
     with nav1:
-        if st.button("⬅ Previous", use_container_width=True):
+        if st.button("❌ Nope", use_container_width=True):
             st.session_state.active_idx = (st.session_state.active_idx - 1) % len(rotation)
             st.rerun()
     with nav2:
@@ -572,7 +646,7 @@ def main():
             unsafe_allow_html=True,
         )
     with nav3:
-        if st.button("Next ➡", use_container_width=True):
+        if st.button("❤️ Like", use_container_width=True):
             st.session_state.active_idx = (st.session_state.active_idx + 1) % len(rotation)
             st.rerun()
 
